@@ -1,45 +1,38 @@
+from utils.chat_history import add_message, get_history
 from google import genai
 from google.genai.errors import ClientError
-import os, time
+import os, asyncio
 from dotenv import load_dotenv
+from utils.prompt import build_prompt
 
 load_dotenv()
 os.environ["GENAI_API_KEY"] = os.getenv("GEMINI_API_KEY")
 client = genai.Client()
 
-chat_history = []
-MAX_HISTORY = 10
-
-def generate_with_retry(prompt, retries=3):
-    for i in range(retries):
+async def generate_with_retry(prompt, retries=3):
+    for _ in range(retries):
         try:
-            response = client.models.generate_content(
+            response = await asyncio.to_thread(
+                client.models.generate_content,
                 model="gemini-3-flash-preview",
                 contents=prompt
-            )
+)
+
             return response.text
         except ClientError as e:
-            if hasattr(e, "code") and e.code ==429:
-                wait_time = 45
-                print(f"Rate limited. Waiting {wait_time}s...")
-                time.sleep(wait_time)
+            if hasattr(e, "code") and e.code == 429:
+                print("Rate limit hit, retrying in 5 seconds...")
+                await asyncio.sleep(5)
             else:
-                print("f'ClientError: {e}")
-                raise 
+                raise
     return "AI unavailable. Try again later."
 
-def get_ai_response(message: str):
-    chat_history.append(f"User: {message}")
-    if len(chat_history) > MAX_HISTORY:
-        chat_history[:] = chat_history[-MAX_HISTORY:]
+async def get_ai_response(message: str):
+    add_message("User", message)
 
-    full_prompt = "You are a helpful chatbot.\n" + "\n".join(chat_history)
-    ai_message = generate_with_retry(full_prompt)
-    chat_history.append(f"AI: {ai_message}")
+    prompt = build_prompt(get_history())
+    ai_message = await generate_with_retry(prompt)
+
+    add_message("AI", ai_message)
     return ai_message
 
-def get_chat_history():
-    return chat_history
-
-def reset_chat_history():
-    chat_history.clear()
