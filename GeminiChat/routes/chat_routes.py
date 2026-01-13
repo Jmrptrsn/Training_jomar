@@ -22,3 +22,4 @@ async def history():
 async def reset():
     reset_history()
     return {"message": "Chat history cleared"}
+    
