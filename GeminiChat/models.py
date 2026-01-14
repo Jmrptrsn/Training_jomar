@@ -4,4 +4,4 @@ class ChatRequest(BaseModel):
     message: str
 
 class ChatResponse(BaseModel):
-    message: str
+    message: str #bot response
